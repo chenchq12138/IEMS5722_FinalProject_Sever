@@ -17,7 +17,7 @@ fcm = FCMNotification(service_account_file="service_account_file.json", project_
 # Create a new client and connect to the server
 uri = ""
 client = MongoClient(uri, server_api=ServerApi('1'))
-db = client["MobileDemo"]
+db = client[""]
 Users = db["Users"]
 Cinemas = db["Cinemas"]
 Messages = db["Messages"]
