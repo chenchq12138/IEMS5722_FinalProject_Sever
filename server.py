@@ -26,6 +26,13 @@ Tokens = db["Tokens"]
 # define a Fast API app
 app = FastAPI()
 
+# test api
+@app.get("/demo/")
+async def get_demo(a: int = 0, b: int = 0, status_code=200):
+  sum = a+b
+  data = {"sum": sum, "date": datetime.today()}
+  return JSONResponse(content=jsonable_encoder(data))
+
 # register a new user
 @app.post("/register_user")
 async def register_user(request: Request):
