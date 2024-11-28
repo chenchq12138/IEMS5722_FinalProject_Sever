@@ -1,0 +1,9 @@
+fastapi
+pymongo
+pydantic
+datetime
+pyfcm
+uvicorn
+gunicorn
+jinja2
+python-multipart
