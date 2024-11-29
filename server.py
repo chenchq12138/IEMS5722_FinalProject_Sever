@@ -12,6 +12,7 @@ from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 from pyfcm import FCMNotification
 from passlib.hash import bcrypt
+import Depends
 
 # FCM send notification
 fcm = FCMNotification(service_account_file="service_account_file.json", project_id="chatroom-ed57d")
@@ -61,7 +62,7 @@ async def register_user(request: Request):
             "password_hash": bcrypt.hash(password),
             "email": email,
             "avatar_url": None,
-            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
         }
         Users.insert_one(new_user)
 
@@ -121,9 +122,42 @@ async def get_user_message(username: str):
 
 # create a new cinema
 @app.post("/create_cinema")
-async def create_cinema(request: Request):
-    data = {"status": "OK"}
-    return JSONResponse(content=jsonable_encoder(data))
+async def create_cinema(request: Request, current_user: dict = Depends(get_current_user)):
+    try:
+        # get data from request
+        data = await request.json()
+        if "room_name" not in data.keys() or "video_url" not in data.keys():
+            response = {"status": "ERROR", "message": "Missing required data"}
+            return JSONResponse(content=jsonable_encoder(response), status_code=400)
+        room_name = data["room_name"]
+        video_url = data["video_url"]
+
+        # creat a room
+        new_room = {
+            "room_name": room_name,
+            "host_id": str(current_user["_id"]),
+            "video_url": video_url,
+            "current_time": 0,
+            "is_playing": False,
+            "members": [],  
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+        }
+        result = Cinemas.insert_one(new_room)
+
+        # creat successfully
+        response = {
+            "room_id": str(result.inserted_id),
+            "message": "Room created successfully"
+        }
+        return JSONResponse(content=jsonable_encoder(response))
+
+    except HTTPException as e:
+        # 捕获 HTTP 异常并返回适当响应
+        return JSONResponse(status_code=e.status_code, content={"status": "Error", "message": e.detail})
+
+    except Exception as e:
+        # 捕获其他异常
+        return JSONResponse(status_code=500, content={"status": "Error", "message": str(e)})
 
 # get the list of cinema about key word
 @app.get("/get_cinema")
