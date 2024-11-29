@@ -256,12 +256,39 @@ async def join_cinema(room_id: str, current_user: dict = Depends(get_current_use
 
 # send message
 @app.post("/send_message")
-async def send_message(request: Request):
+async def send_message(request: Request, current_user: dict = Depends(get_current_user)):
     data = {"status": "OK"}
     return JSONResponse(content=jsonable_encoder(data))
 
 # get messages
 @app.get("/get_messages")
-async def get_messages(chatroom_id: int):
-    data = {"status": "OK"}
-    return JSONResponse(content=jsonable_encoder(data))
+async def get_messages(room_id: str, current_user: dict = Depends(get_current_user)):
+    try:
+        # check whether room exists
+        room = Cinemas.find_one({"_id": ObjectId(room_id)})
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found")
+
+        # get message list
+        messages = list(Messages.find({"room_id": room_id}))
+
+        # change the form of message for sending
+        formatted_messages = []
+        for message in messages:
+            user = Users.find_one({"_id": ObjectId(message["user_id"])})  
+            # user not exist, skip
+            if not user:
+                continue  
+            formatted_messages.append({
+                "username": user["username"], 
+                "message": message["message"], 
+                "timestamp": message["sent_at"]  
+            })
+
+        # return list
+        return JSONResponse(content=jsonable_encoder(formatted_messages))
+
+    except HTTPException as e:
+        return JSONResponse(status_code=e.status_code, content={"status": "Error", "message": e.detail})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "Error", "message": str(e)})
