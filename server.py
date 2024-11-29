@@ -15,6 +15,7 @@ from pyfcm import FCMNotification
 from passlib.hash import bcrypt
 import jwt
 from typing import Optional
+import ObjectId
 
 # JWT密钥和算法
 SECRET_KEY = "your_secret_key"
@@ -223,11 +224,35 @@ async def get_cinema(key_word: str, current_user: dict = Depends(get_current_use
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "Error", "message": str(e)})
 
+
 # join cinema
 @app.post("/join_cinema")
-async def join_cinema(request: int):
-    data = {"status": "OK"}
-    return JSONResponse(content=jsonable_encoder(data))
+async def join_cinema(room_id: str, current_user: dict = Depends(get_current_user)):
+    try:
+        # find the room
+        cinema = Cinemas.find_one({"_id": ObjectId(room_id)})
+        if not cinema:
+            raise HTTPException(status_code=404, detail="Room not found")
+        
+        # check whether the user is already in the room
+        if str(current_user["user_id"]) in cinema.get("members", []):
+            return JSONResponse(content={"message": "You are already in this room"})
+        
+        # add the user
+        Cinemas.update_one(
+            {"_id": ObjectId(room_id)},
+            {"$addToSet": {"members": str(current_user["user_id"])}}
+        )
+
+        # Joined room successfully
+        response = {"message": "Joined room successfully"}
+        return JSONResponse(content=jsonable_encoder(response))
+
+    except HTTPException as e:
+        return JSONResponse(status_code=e.status_code, content={"status": "Error", "message": e.detail})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "Error", "message": str(e)})
+
 
 # send message
 @app.post("/send_message")
