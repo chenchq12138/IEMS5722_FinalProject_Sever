@@ -143,10 +143,12 @@ async def login_user(request: Request):
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "Error", "message": str(e)})
 
+
 # Example of a protected route
 @app.get("/protected_route")
 async def protected_route(current_user: dict = Depends(get_current_user)):
     return {"message": "This is a protected route", "user": current_user}
+
 
 # Example of a user-specific route with JWT authentication
 @app.get("/get_user_message")
@@ -158,6 +160,7 @@ async def get_user_message(username: str, current_user: dict = Depends(get_curre
     # Return the user's messages or other data
     data = {"status": "OK", "message": "This is the user's message data."}
     return JSONResponse(content=jsonable_encoder(data))
+
 
 # create a new cinema
 @app.post("/create_cinema")
@@ -174,7 +177,7 @@ async def create_cinema(request: Request, current_user: dict = Depends(get_curre
         # creat a room
         new_room = {
             "room_name": room_name,
-            "host_id": str(current_user["_id"]),
+            "host_id": str(current_user["user_id"]),
             "video_url": video_url,
             "current_time": 0,
             "is_playing": False,
