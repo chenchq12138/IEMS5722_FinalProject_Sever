@@ -194,12 +194,10 @@ async def create_cinema(request: Request, current_user: dict = Depends(get_curre
         return JSONResponse(content=jsonable_encoder(response))
 
     except HTTPException as e:
-        # 捕获 HTTP 异常并返回适当响应
         return JSONResponse(status_code=e.status_code, content={"status": "Error", "message": e.detail})
-
     except Exception as e:
-        # 捕获其他异常
         return JSONResponse(status_code=500, content={"status": "Error", "message": str(e)})
+
 
 # get the list of cinema about key word
 @app.get("/get_cinema")
