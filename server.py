@@ -201,9 +201,27 @@ async def create_cinema(request: Request, current_user: dict = Depends(get_curre
 
 # get the list of cinema about key word
 @app.get("/get_cinema")
-async def get_cinema(key_word: str):
-    data = {"status": "OK"}
-    return JSONResponse(content=jsonable_encoder(data))
+async def get_cinema(key_word: str, current_user: dict = Depends(get_current_user)):
+    try:
+        # find the room with key_word
+        query = {"room_name": {"$regex": key_word, "$options": "i"}}  # 不区分大小写匹配
+        rooms = list(Cinemas.find(query))
+        # get result
+        result = []
+        for room in rooms:
+            result.append({
+                "room_id": str(room["_id"]),
+                "room_name": room["room_name"],
+                "video_url": room["video_url"],
+                "current_viewers": len(room.get("participants", []))  # 当前观看人数
+            })
+        # return result
+        return JSONResponse(content=jsonable_encoder(result))
+
+    except HTTPException as e:
+        return JSONResponse(status_code=e.status_code, content={"status": "Error", "message": e.detail})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "Error", "message": str(e)})
 
 # join cinema
 @app.post("/join_cinema")
