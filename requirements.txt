@@ -7,3 +7,5 @@ uvicorn
 gunicorn
 jinja2
 python-multipart
+pyjwt
+passlib
