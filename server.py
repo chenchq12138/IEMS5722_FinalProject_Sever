@@ -256,9 +256,56 @@ async def join_cinema(room_id: str, current_user: dict = Depends(get_current_use
 
 # send message
 @app.post("/send_message")
-async def send_message(request: Request, current_user: dict = Depends(get_current_user)):
-    data = {"status": "OK"}
-    return JSONResponse(content=jsonable_encoder(data))
+async def send_message(request: Request, room_id: str, current_user: dict = Depends(get_current_user)):
+    try:
+        # get data from request
+        data = await request.json()
+        if "message" not in data.keys():
+            raise HTTPException(status_code=400, detail="Missing required data")
+        message_text = data["message"]
+
+        # check whether room exist
+        room = Cinemas.find_one({"_id": ObjectId(room_id)})
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found")
+
+        # check whether user in the room
+        if str(current_user["user_id"]) not in room.get("members", []):
+            raise HTTPException(status_code=403, detail="You are not a member of this room")
+
+        # insert the message
+        new_message = {
+            "room_id": str(room_id),
+            "user_id": str(current_user["user_id"]),
+            "message": message_text,
+            "sent_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+        }
+        result = Messages.insert_one(new_message)
+
+        # # 使用 FCM 向房间中的其他用户发送通知（可选，需确保 FCM 配置正确）
+        # if "members" in room:
+        #     for member_id in room["members"]:
+        #         if member_id != str(current_user["user_id"]):  # 不通知发送消息的用户自己
+        #             user_token = Tokens.find_one({"user_id": member_id})
+        #             if user_token:
+        #                 fcm.notify_single_device(
+        #                     registration_id=user_token["fcm_token"],
+        #                     message_title=f"New message in {room['room_name']}",
+        #                     message_body=message_text
+        #                 )
+
+        # Message sent successfully
+        response = {
+            "status": "OK",
+            "response": "Message sent successfully",
+            "message": message_text
+        }
+        return JSONResponse(content=jsonable_encoder(response))
+
+    except HTTPException as e:
+        return JSONResponse(status_code=e.status_code, content={"status": "Error", "message": e.detail})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "Error", "message": str(e)})
 
 # get messages
 @app.get("/get_messages")
