@@ -15,7 +15,6 @@ from pyfcm import FCMNotification
 from passlib.hash import bcrypt
 import jwt
 from typing import Optional
-import Depends
 
 # JWT密钥和算法
 SECRET_KEY = "your_secret_key"
