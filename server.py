@@ -304,7 +304,7 @@ async def send_message(request: Request, room_id: str, current_user: dict = Depe
         message_text = data["message"]
 
         # check whether room exist
-        room = Cinemas.find_one({"_id": ObjectId(room_id)})
+        room = Cinemas.find_one({"_id": room_id})
         if not room:
             raise HTTPException(status_code=404, detail="Room not found")
 
@@ -351,7 +351,7 @@ async def send_message(request: Request, room_id: str, current_user: dict = Depe
 async def get_messages(room_id: str, current_user: dict = Depends(get_current_user)):
     try:
         # check whether room exists
-        room = Cinemas.find_one({"_id": ObjectId(room_id)})
+        room = Cinemas.find_one({"_id": room_id})
         if not room:
             raise HTTPException(status_code=404, detail="Room not found")
 
@@ -361,7 +361,7 @@ async def get_messages(room_id: str, current_user: dict = Depends(get_current_us
         # change the form of message for sending
         formatted_messages = []
         for message in messages:
-            user = Users.find_one({"_id": ObjectId(message["user_id"])})  
+            user = Users.find_one({"_id": message["user_id"]})  
             # user not exist, skip
             if not user:
                 continue  
