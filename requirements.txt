@@ -10,4 +10,3 @@ python-multipart
 pyjwt
 passlib
 jwt
-bson
