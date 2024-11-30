@@ -324,7 +324,11 @@ async def send_message(request: Request, room_id: str, current_user: dict = Depe
         message_text = data["message"]
 
         # check whether room exist
+        cinemas = list(Cinemas.find({}))
         room = Cinemas.find_one({"_id": room_id})
+        for cinema in cinemas:
+            if(str(cinema["_id"])=="674b6524ebd99552f81e9157"):
+                room = cinema
         if not room:
             raise HTTPException(status_code=404, detail="Room not found")
 
@@ -371,7 +375,11 @@ async def send_message(request: Request, room_id: str, current_user: dict = Depe
 async def get_messages(room_id: str, current_user: dict = Depends(get_current_user)):
     try:
         # check whether room exists
+        cinemas = list(Cinemas.find({}))
         room = Cinemas.find_one({"_id": room_id})
+        for cinema in cinemas:
+            if(str(cinema["_id"])=="674b6524ebd99552f81e9157"):
+                room = cinema
         if not room:
             raise HTTPException(status_code=404, detail="Room not found")
 
