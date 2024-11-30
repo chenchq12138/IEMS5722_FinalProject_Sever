@@ -16,7 +16,6 @@ from passlib.hash import bcrypt
 import jwt
 import random
 from typing import Optional
-from bson import ObjectId 
 
 # JWT密钥和算法
 SECRET_KEY = "your_secret_key"
