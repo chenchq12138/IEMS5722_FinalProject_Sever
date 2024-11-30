@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pymongo import MongoClient
 from fastapi import HTTPException
 from fastapi import Form
@@ -398,3 +398,60 @@ async def get_messages(room_id: str, current_user: dict = Depends(get_current_us
         return JSONResponse(status_code=e.status_code, content={"status": "Error", "message": e.detail})
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "Error", "message": str(e)})
+    
+
+rooms = {}
+# 创建WebSocket连接：用于同步视频播放状态
+@app.websocket("/ws/{room_id}")
+async def websocket_endpoint(websocket: WebSocket, room_id: str, current_user: dict = Depends(get_current_user)):
+    await websocket.accept()
+    
+    # 查找该房间
+    room = Cinemas.find_one({"_id": room_id})
+    if not room:
+        await websocket.close(code=1000)
+        return
+    
+    # 添加该用户到房间内的WebSocket列表
+    if room_id not in rooms:
+        rooms[room_id] = {}
+    
+    rooms[room_id][current_user["user_id"]] = websocket
+
+    try:
+        # 向房间中的所有用户广播消息
+        await notify_room_members(room_id, {"status": "connected", "user": current_user["sub"]})
+        
+        # 监听来自客户端的播放控制消息
+        while True:
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            
+            # 检查消息类型：播放控制（播放、暂停、进度更新）
+            if "action" in message:
+                action = message["action"]
+                if action == "play":
+                    # 广播播放消息给房间内所有成员
+                    await broadcast_to_room(room_id, {"action": "play", "current_time": message.get("current_time")})
+                elif action == "pause":
+                    # 广播暂停消息给房间内所有成员
+                    await broadcast_to_room(room_id, {"action": "pause", "current_time": message.get("current_time")})
+                elif action == "seek":
+                    # 广播跳转进度消息给房间内所有成员
+                    await broadcast_to_room(room_id, {"action": "seek", "current_time": message.get("current_time")})
+
+    except WebSocketDisconnect:
+        # 如果用户断开连接，从房间的WebSocket列表中删除该用户
+        del rooms[room_id][current_user["user_id"]]
+        await notify_room_members(room_id, {"status": "disconnected", "user": current_user["sub"]})
+        await websocket.close()
+
+# 广播房间内的状态更新
+async def broadcast_to_room(room_id: str, message: dict):
+    for user_id, websocket in rooms.get(room_id, {}).items():
+        await websocket.send_text(json.dumps(message))
+
+# 广播消息给房间的所有成员
+async def notify_room_members(room_id: str, message: dict):
+    for user_id, websocket in rooms.get(room_id, {}).items():
+        await websocket.send_text(json.dumps(message))
