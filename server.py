@@ -14,6 +14,7 @@ from pymongo.server_api import ServerApi
 from pyfcm import FCMNotification
 from passlib.hash import bcrypt
 import jwt
+import random
 from typing import Optional
 from bson import ObjectId 
 
@@ -172,24 +173,34 @@ async def create_cinema(request: Request, current_user: dict = Depends(get_curre
         if "room_name" not in data.keys() or "video_url" not in data.keys():
             response = {"status": "ERROR", "message": "Missing required data"}
             return JSONResponse(content=jsonable_encoder(response), status_code=400)
+       
         room_name = data["room_name"]
         video_url = data["video_url"]
 
-        # creat a room
+        # Generate a unique 4-digit invitation code
+        while True:
+            invitation_code = str(random.randint(1000, 9999))
+            existing_room = Cinemas.find_one({"invitation_code": invitation_code})
+            if not existing_room:
+                break
+
+        # create a room
         new_room = {
             "room_name": room_name,
             "host_id": str(current_user["user_id"]),
             "video_url": video_url,
             "current_time": 0,
             "is_playing": False,
-            "members": [],  
+            "members": [],
+            "invitation_code": invitation_code,  # 存储唯一的 4 位邀请码
             "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
         }
         result = Cinemas.insert_one(new_room)
 
-        # creat successfully
+        # create successfully
         response = {
             "room_id": str(result.inserted_id),
+            "invitation_code": invitation_code,  # 返回邀请码给前端
             "message": "Room created successfully"
         }
         return JSONResponse(content=jsonable_encoder(response))
@@ -198,7 +209,6 @@ async def create_cinema(request: Request, current_user: dict = Depends(get_curre
         return JSONResponse(status_code=e.status_code, content={"status": "Error", "message": e.detail})
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "Error", "message": str(e)})
-
 
 # get the list of cinema about key word
 @app.get("/api/rooms")
@@ -226,26 +236,56 @@ async def get_cinema(keyword: str, current_user: dict = Depends(get_current_user
 
 
 # join cinema
-@app.post("/api/rooms/{room_id}/join")
-async def join_cinema(room_id: str, current_user: dict = Depends(get_current_user)):
-    try:
-        # find the room
-        cinema = Cinemas.find_one({"_id": ObjectId(room_id)})
-        if not cinema:
-            raise HTTPException(status_code=404, detail="Room not found")
+# @app.post("/api/rooms/{room_id}/join")
+# async def join_cinema(room_id: str, current_user: dict = Depends(get_current_user)):
+#     try:
+#         # find the room
+#         cinema = Cinemas.find_one({"_id": ObjectId(room_id)})
+#         if not cinema:
+#             raise HTTPException(status_code=404, detail="Room not found")
         
-        # check whether the user is already in the room
+#         # check whether the user is already in the room
+#         if str(current_user["user_id"]) in cinema.get("members", []):
+#             return JSONResponse(content={"message": "You are already in this room"})
+        
+#         # add the user
+#         Cinemas.update_one(
+#             {"_id": ObjectId(room_id)},
+#             {"$addToSet": {"members": str(current_user["user_id"])}}
+#         )
+
+#         # Joined room successfully
+#         response = {"message": "Joined room successfully"}
+#         return JSONResponse(content=jsonable_encoder(response))
+
+#     except HTTPException as e:
+#         return JSONResponse(status_code=e.status_code, content={"status": "Error", "message": e.detail})
+#     except Exception as e:
+#         return JSONResponse(status_code=500, content={"status": "Error", "message": str(e)})
+
+
+
+# join cinema by invitation code
+@app.post("/api/rooms/join_by_code")
+async def join_cinema_by_code(invitation_code: str, current_user: dict = Depends(get_current_user)):
+    try:
+        # Find the room by invitation code
+        cinema = Cinemas.find_one({"invitation_code": invitation_code})
+        if not cinema:
+            raise HTTPException(status_code=404, detail="Room not found with the given invitation code")
+        
+        # Check whether the user is already in the room
         if str(current_user["user_id"]) in cinema.get("members", []):
             return JSONResponse(content={"message": "You are already in this room"})
-        
-        # add the user
+
+        # Add the user to the room
         Cinemas.update_one(
-            {"_id": ObjectId(room_id)},
+            {"_id": cinema["_id"]},
             {"$addToSet": {"members": str(current_user["user_id"])}}
         )
 
         # Joined room successfully
-        response = {"message": "Joined room successfully"}
+        response = {"message": "Joined room successfully using invitation code"}
         return JSONResponse(content=jsonable_encoder(response))
 
     except HTTPException as e:
