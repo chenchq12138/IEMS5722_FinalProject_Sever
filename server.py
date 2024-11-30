@@ -8,7 +8,7 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from fastapi import Request
 import json
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 from pyfcm import FCMNotification
@@ -41,21 +41,36 @@ app = FastAPI()
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta  # 使用 timedelta 来计算过期时间
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=60)  # 默认过期时间60分钟
-    to_encode.update({"exp": expire})
+        expire = datetime.now(timezone.utc) + timedelta(minutes=60)
+    # 将'expire'转换为整数时间戳
+    to_encode.update({"exp": int(expire.timestamp())})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 # Utility function to verify JWT token
 def verify_token(token: str):
     try:
+        # 检查Token是否在数据库中
+        token_record = Tokens.find_one({"token": token})
+        if not token_record:
+            raise HTTPException(status_code=401, detail="Token has been revoked, please log in again")
+        
+        # 检查Token是否过期，确保 expires_at 是 offset-aware 的时间对象
+        expires_at = token_record["expires_at"]
+        if expires_at.tzinfo is None:  # 如果 expires_at 没有时区信息，强制转换为 UTC
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        
+        if expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=401, detail="Token has expired")
+        
+        # 解码JWT Token
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload  # 返回解码后的payload，其中包含了用户的信息
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.JWTError:
+    except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Token is invalid")
     
 # # Dependency to get the current user from the token
@@ -66,19 +81,13 @@ security = HTTPBearer()
 # 自定义依赖，用于从Authorization头中提取Token
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     token = credentials.credentials
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload  # 返回解码后的JWT负载
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.JWTError:
-        raise HTTPException(status_code=401, detail="Token is invalid")
+    return verify_token(token)
 
 # test api
 @app.get("/demo/")
 async def get_demo(a: int = 0, b: int = 0, status_code=200):
   sum = a+b
-  data = {"sum": sum, "date": datetime.utcnow()}
+  data = {"sum": sum, "date": datetime.now(timezone.utc)}
   return JSONResponse(content=jsonable_encoder(data))
 
 # register a new user
@@ -108,7 +117,7 @@ async def register_user(request: Request):
             "password_hash": bcrypt.hash(password),
             "email": email,
             "avatar_url": None,
-            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
         Users.insert_one(new_user)
 
@@ -205,7 +214,7 @@ async def create_cinema(request: Request, current_user: dict = Depends(get_curre
             "is_playing": False,
             "members": [],
             "invitation_code": invitation_code,  # 存储唯一的 4 位邀请码
-            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
         result = Cinemas.insert_one(new_room)
 
@@ -341,7 +350,7 @@ async def send_message(request: Request, room_id: str, current_user: dict = Depe
             "room_id": str(room_id),
             "user_id": str(current_user["user_id"]),
             "message": message_text,
-            "sent_at": datetime.utcnow().isoformat()  # 使用 ISO 格式
+            "sent_at": datetime.now(timezone.utc).isoformat()
         }
         result = Messages.insert_one(new_message)
 
