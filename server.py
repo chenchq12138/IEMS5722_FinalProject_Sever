@@ -214,7 +214,7 @@ async def get_cinema(key_word: str, current_user: dict = Depends(get_current_use
                 "room_id": str(room["_id"]),
                 "room_name": room["room_name"],
                 "video_url": room["video_url"],
-                "current_viewers": len(room.get("participants", []))  # 当前观看人数
+                "current_viewers": len(room.get("members", []))  # 使用 members 计算当前观看人数
             })
         # return result
         return JSONResponse(content=jsonable_encoder(result))
@@ -278,7 +278,7 @@ async def send_message(request: Request, room_id: str, current_user: dict = Depe
             "room_id": str(room_id),
             "user_id": str(current_user["user_id"]),
             "message": message_text,
-            "sent_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+            "sent_at": datetime.utcnow().isoformat()  # 使用 ISO 格式
         }
         result = Messages.insert_one(new_message)
 
