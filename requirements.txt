@@ -9,3 +9,5 @@ jinja2
 python-multipart
 pyjwt
 passlib
+jwt
+bson
