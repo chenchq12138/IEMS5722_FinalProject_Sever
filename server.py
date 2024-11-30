@@ -15,7 +15,7 @@ from pyfcm import FCMNotification
 from passlib.hash import bcrypt
 import jwt
 from typing import Optional
-import ObjectId
+from bson import ObjectId 
 
 # JWT密钥和算法
 SECRET_KEY = "your_secret_key"
@@ -69,7 +69,7 @@ async def get_demo(a: int = 0, b: int = 0, status_code=200):
   return JSONResponse(content=jsonable_encoder(data))
 
 # register a new user
-@app.post("/register_user")
+@app.post("/api/auth/register_user")
 async def register_user(request: Request):
     try:
         # get data from request
@@ -110,7 +110,7 @@ async def register_user(request: Request):
     
 
 # login
-@app.post("/login_user")
+@app.post("/api/auth/login_user")
 async def login_user(request: Request):
     try:
         data = await request.json()
@@ -164,7 +164,7 @@ async def get_user_message(username: str, current_user: dict = Depends(get_curre
 
 
 # create a new cinema
-@app.post("/create_cinema")
+@app.post("/api/rooms")
 async def create_cinema(request: Request, current_user: dict = Depends(get_current_user)):
     try:
         # get data from request
@@ -201,11 +201,11 @@ async def create_cinema(request: Request, current_user: dict = Depends(get_curre
 
 
 # get the list of cinema about key word
-@app.get("/get_cinema")
-async def get_cinema(key_word: str, current_user: dict = Depends(get_current_user)):
+@app.get("/api/rooms")
+async def get_cinema(keyword: str, current_user: dict = Depends(get_current_user)):
     try:
-        # find the room with key_word
-        query = {"room_name": {"$regex": key_word, "$options": "i"}}  # 不区分大小写匹配
+        # find the room with keyword
+        query = {"room_name": {"$regex": keyword, "$options": "i"}}  # 不区分大小写匹配
         rooms = list(Cinemas.find(query))
         # get result
         result = []
@@ -226,7 +226,7 @@ async def get_cinema(key_word: str, current_user: dict = Depends(get_current_use
 
 
 # join cinema
-@app.post("/join_cinema")
+@app.post("/api/rooms/{room_id}/join")
 async def join_cinema(room_id: str, current_user: dict = Depends(get_current_user)):
     try:
         # find the room
@@ -255,7 +255,7 @@ async def join_cinema(room_id: str, current_user: dict = Depends(get_current_use
 
 
 # send message
-@app.post("/send_message")
+@app.post("/api/rooms/{room_id}/chat")
 async def send_message(request: Request, room_id: str, current_user: dict = Depends(get_current_user)):
     try:
         # get data from request
@@ -308,7 +308,7 @@ async def send_message(request: Request, room_id: str, current_user: dict = Depe
         return JSONResponse(status_code=500, content={"status": "Error", "message": str(e)})
 
 # get messages
-@app.get("/get_messages")
+@app.get("/api/rooms/{room_id}/chat")
 async def get_messages(room_id: str, current_user: dict = Depends(get_current_user)):
     try:
         # check whether room exists
