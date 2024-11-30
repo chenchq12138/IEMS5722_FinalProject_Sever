@@ -135,7 +135,7 @@ async def login_user(request: Request):
 
         # JWT token data (you can include more user data here if necessary)
         user_data = {"sub": user["username"], "user_id": str(user["_id"])}
-        access_token_expires = datetime.timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(data=user_data, expires_delta=access_token_expires)
 
         response = {"status": "OK", "message": "Login successful", "access_token": access_token}
