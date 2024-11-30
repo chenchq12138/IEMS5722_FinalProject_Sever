@@ -16,6 +16,7 @@ from passlib.hash import bcrypt
 import jwt
 import random
 from typing import Optional
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 # JWT密钥和算法
 SECRET_KEY = "your_secret_key"
@@ -57,9 +58,21 @@ def verify_token(token: str):
     except jwt.JWTError:
         raise HTTPException(status_code=401, detail="Token is invalid")
     
-# Dependency to get the current user from the token
-def get_current_user(token: str = Depends(verify_token)):
-    return token  # 返回解码后的JWT负载数据（如用户ID）
+# # Dependency to get the current user from the token
+# def get_current_user(token: str = Depends(verify_token)):
+#     return token  # 返回解码后的JWT负载数据（如用户ID）
+security = HTTPBearer()
+
+# 自定义依赖，用于从Authorization头中提取Token
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload  # 返回解码后的JWT负载
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.JWTError:
+        raise HTTPException(status_code=401, detail="Token is invalid")
 
 # test api
 @app.get("/demo/")
