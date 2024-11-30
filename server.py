@@ -151,7 +151,7 @@ async def login_user(request: Request):
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(data=user_data, expires_delta=access_token_expires)
 
-        response = {"status": "OK", "message": "Login successful", "access_token": access_token}
+        response = {"status": "OK", "message": "Login successful", "access_token": access_token, "token_type": "bearer"}
         return JSONResponse(content=jsonable_encoder(response))
     
     except Exception as e:
@@ -279,8 +279,15 @@ async def get_cinema(keyword: str, current_user: dict = Depends(get_current_user
 
 # join cinema by invitation code
 @app.post("/api/rooms/join_by_code")
-async def join_cinema_by_code(invitation_code: str, current_user: dict = Depends(get_current_user)):
+async def join_cinema_by_code(request: Request, current_user: dict = Depends(get_current_user)):
     try:
+        # get data from request
+        data = await request.json()
+        if "invitation_code" not in data.keys():
+            response = {"status": "ERROR", "message": "Missing required data"}
+            return JSONResponse(content=jsonable_encoder(response), status_code=400)
+        invitation_code = data["invitation_code"]
+        
         # Find the room by invitation code
         cinema = Cinemas.find_one({"invitation_code": invitation_code})
         if not cinema:
